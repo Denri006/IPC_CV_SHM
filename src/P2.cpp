@@ -27,10 +27,13 @@ void increment_thread(struct data_in_shm* shared_struct)
 
   while (!stop)
   {
-    std::unique_lock<std::mutex> lk(shared_struct->mutex);
-    shared_struct->cv.wait(lk);
+    pthread_mutex_lock(&shared_struct->pthread_mutex);
+    pthread_cond_wait(&shared_struct->pthread_cv, &shared_struct->pthread_mutex );
+    //std::unique_lock<std::mutex> lk(shared_struct->mutex);
+    //shared_struct->cv.wait(lk);
     shared_struct->stuff++;
-    lk.unlock();
+    //lk.unlock();
+    pthread_mutex_unlock(&shared_struct->pthread_mutex);
     printf("Incremented Variable, sleeping now.\n");
   }
     thread_dead = true;

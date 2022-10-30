@@ -10,6 +10,7 @@
 #include <data.h>  //structure for shared memory
 #include <unistd.h>
 #include <signal.h>
+#include <pthread.h>
 using namespace std::chrono_literals;
 
 volatile sig_atomic_t stop;
@@ -27,9 +28,12 @@ void wake_thread(struct data_in_shm* shared_struct)
   {
     std::this_thread::sleep_for(1000ms);
     {
-      std::scoped_lock<std::mutex> lk(shared_struct->mutex);
+      //pthread_mutex_lock(&shared_struct->pthread_mutex);
+      //std::scoped_lock<std::mutex> lk(shared_struct->mutex);
       printf("Shared Memory Variable is: %i\n", shared_struct->stuff);
-      shared_struct->cv.notify_one();
+      //pthread_mutex_unlock(&shared_struct->pthread_mutex);
+      pthread_cond_signal(&shared_struct->pthread_cv);
+      //shared_struct->cv.notify_one();
     }
   }
   thread_dead = true;
@@ -54,7 +58,18 @@ int main(void)
     return errno;
   }
   printf("Shared memory attached, launching waker thread\n");
-  std::thread{ &wake_thread, shared_struct }.detach();  
+
+  pthread_mutexattr_t psharedm;
+  pthread_condattr_t psharedc;
+  (void)pthread_mutexattr_init(&psharedm);
+  (void)pthread_mutexattr_setpshared(&psharedm, PTHREAD_PROCESS_SHARED);
+  (void)pthread_condattr_init(&psharedc);
+  (void)pthread_condattr_setpshared(&psharedc, PTHREAD_PROCESS_SHARED);
+
+  (void) pthread_mutex_init(&(shared_struct->pthread_mutex), &psharedm);
+  (void) pthread_cond_init(&(shared_struct->pthread_cv), &psharedc);
+
+  std::thread{ &wake_thread, shared_struct }.detach();
   while (!stop || !thread_dead)
   {
   };
